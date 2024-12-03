@@ -1,66 +1,98 @@
+import { strict } from "assert";
 import { readFileSync } from "fs";
 
-// Returns an array of strings like "123   623"
-const readInput = (filePath: string, left: number[], right: number[]) => {
+// Split data into usable array of integers
+const readInput = (filePath: string) => {
   try {
     const data = readFileSync(filePath, "utf-8").split("\n");
-    data.forEach((d) => {
-      const split = d.split("   ");
-      const a = parseInt(split[0]);
-      const b = parseInt(split[1]);
-      left.push(a);
-      right.push(b);
-    });
+    const splitData: number[][] = [];
+    data.forEach((d) => splitData.push(d.split(" ").map(x => parseInt(x))));
+    return splitData;
   } catch (err) {
     console.info(`Error reading file at path ${filePath}: ${err}`);
   }
 };
 
-let left: number[] = [];
-let right: number[] = [];
-readInput("./inputs/day1.txt", left, right);
+// With the formatted number, begin the filtering process
+const sd = readInput('./inputs/day2.txt');
+const unsafe: number[][] = [];
 
-left.sort((a, b) => {
-  return a - b;
+// All increasing
+const strictlyMonotonic = sd.filter(arr => {
+  let monoResult = 0;
+  for(let i = 1; i < arr.length; i++) {
+    const prev = arr[i-1];
+    const cur = arr[i];
+    if(prev > cur) monoResult++;
+    else if(cur > prev) monoResult--;
+  }
+  const safe = Math.abs(monoResult) == arr.length-1;
+  if(!safe) unsafe.push(arr);
+  return safe;
+})
+
+// Differ levels
+const differByAtMostThree = strictlyMonotonic.filter(arr => {
+  for(let i = 1; i < arr.length; i++) {
+    const prev = arr[i-1];
+    const cur = arr[i];
+    if(Math.abs(prev-cur) > 3) {
+      unsafe.push(arr);
+      return false;
+    };
+  }
+  return true;
 });
 
-right.sort((a, b) => {
-  return a - b;
-});
+// differByAtMostThree.forEach(x => console.log(x));
+// console.log(differByAtMostThree.length);
+// console.log(unsafe.length);
 
-let total = 0;
-left.forEach((l, i) => {
-  const r = right[i];
-  total += Math.abs(l - r);
-});
+// Now we need to take all the unsafe ones, and see if its both strictly monotonic and differ by at most three
+// after removing a bad one.
 
-// Prints the answer for part1
-console.log(`total: ${total}`);
+const sm = (arr: number[]) => {
+  // All increasing
+  let monoResult = 0;
+  for(let i = 1; i < arr.length; i++) {
+    const prev = arr[i-1];
+    const cur = arr[i];
+    if(prev > cur) monoResult++;
+    else if(cur > prev) monoResult--;
+  }
+  const safe = Math.abs(monoResult) == arr.length-1;
+  return safe;
+}
 
-// Part 2, each num in left exists x times in right
-// create a map of nums in the right, update their total appearances
-// then iterate through left list and do the calculation (left num * times in right)
-// add up a running total
+const dbamt = (arr: number[]) => {
+  for(let i = 1; i < arr.length; i++) {
+    const prev = arr[i-1];
+    const cur = arr[i];
+    if(Math.abs(prev-cur) > 3) return false;
+  }
+  return true;
+}
 
-const map = new Map<number, number>();
-right.forEach((v) => {
-  if (map.has(v)) map.set(v, map.get(v)! + 1);
-  else map.set(v, 1);
-});
+let result = 0;
+unsafe.forEach(arr => {
+  // Each arr is bad - need to remove one char at a time and re-test
+  const copy = [...arr];
+  for(let i = 0; i < arr.length; i++) {
+    // Remove it
+    const removed = arr.splice(i, 1);
+    // console.log(`orig: ${copy}`);
+    // Test what remains
+    // console.log(`removed: ${removed[0]} from ${arr}`)
+    if(sm(arr) && dbamt(arr)) {
+      // console.log(arr);
+      result++
+      break;
+    };
 
-let total2 = 0;
-left.forEach((v) => {
-  let get = map.get(v);
-  if (get) {
-    total2 += v * get;
+    // Re-insert it
+    arr.splice(i, 0, removed[0]);
+    // console.log(`readded it: ${arr}\n\n`);
   }
 });
 
-console.log(`total2: ${total2}`);
-
-/**
- * Both correct
- * --------------
- * total: 1603498
- * total2: 25574739
- */
+console.log(`Result: ${result + differByAtMostThree.length}`);
