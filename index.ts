@@ -1,137 +1,142 @@
 import { readFileSync } from "fs";
 
-const readInput = (filePath: string): string[][] => {
+//https://adventofcode.com/2024/day/9
+
+const readFile = (path: string) => {
+  let data: number[] = [];
   try {
-    const data = readFileSync(filePath, "utf-8");
-    const splitlines = data.split('\n');
-    const result: string[][] = [];
-    splitlines.forEach(line => {
-      const splitline = line.trim().split('');
-      result.push(splitline);
-    });
-    return result;
+    data = readFileSync(path, "utf-8")
+      .split("")
+      .map((x) => parseInt(x));
+    // Now try the rejects and see if removing one element results in a safe entry
   } catch (err) {
-    console.info(`Error reading file at path ${filePath}: ${err}`);
+    console.info(`Error reading from path ${path}: ${err}`);
   }
-  return [];
+
+  return data;
 };
 
-const data = readInput('./inputs/day8.txt');
-const map = new Map<string, string[]>();
-const antinode = '#.'
-const set = new Set<string>();
+const data = readFile("./inputs/day9.txt");
 
-for (let row = 0; row < data.length; row++) {
-  for (let col = 0; col < data[0].length; col++) {
-    let cur = data[row][col];
-    if (antinode.includes(cur)) continue;
-    if (map.has(cur)) map.get(cur)!.push(`${row}#${col}`)
-    else map.set(cur, [`${row}#${col}`])
+const filesystem: number[] = [];
+for (let i = 0; i < data.length; i++) {
+  let count = data[i];
+  // Even
+  if (i % 2 == 0) {
+    // i will always be half, so if we have 0 = 0, 2 = 1, 4 = 2, 8 = 4 etc
+    let id = Math.floor(i / 2);
+    for (let k = 0; k < count; k++) filesystem.push(id);
   }
+  // Odd
+  else for (let k = 0; k < count; k++) filesystem.push(-1);
 }
 
-const inBounds = (pair: number[]) => {
-  const row = pair[0]
-  const col = pair[1]
-  return row >= 0 && row < data.length && col >= 0 && col < data[0].length;
-}
+const checksum = () => {
+  let checksum = 0;
+  for (let i = 0; i < filesystem.length; i++) {
+    const v = filesystem[i];
+    if (v == -1) continue;
+    checksum += v * i;
+  }
+  console.log(checksum);
+};
 
-// Now for each key, calculate distances between pairs, then generate their antinode pairs
-map.forEach((v, k) => {
-  for (let i = 0; i < v.length; i++) {
-    for (let j = i + 1; j < v.length; j++) {
-      generateAntiNodesV2(v[i], v[j]);
+// Part 1: Defrag
+const part1Defrag = () => {
+  let lo = 0;
+  let hi = filesystem.length - 1;
+  while (lo < hi) {
+    if (filesystem[lo] == -1 && filesystem[hi] != -1) {
+      filesystem[lo] = filesystem[hi];
+      filesystem[hi] = -1;
+    }
+    while (filesystem[lo] != -1) lo++;
+    while (filesystem[hi] == -1) hi--;
+  }
+
+  //Correct: 6384282079460
+  checksum();
+};
+// part1Defrag();
+
+/**
+ * Is it possible to use the single digit solution (where we just swap values w/ two pointers?)
+ * now we're swapping groups of negatives with groups of positives.
+ *
+ * Hard parts:
+ * - knowing the location and size of all contiguous memory blocks (from left to right)
+ * - Updating these blocks once they are successfully written to (might need to re-scan the whole array and regen the freespace table)
+ * - Get position of a file block given it's value, and we use 2x it's position in the original array to get the size.
+ *   - e.g. if we see 9 9 9 9, we know 2x 9 is 18, which is the 18th position in the original array.
+ *
+ * Now we have ability to get filesize based on a file id (if we scan backwards)
+ *
+ * And we have the freespace map, so we can scan the key->values and get the first location
+ * that has enough free space to write based on that filesize.
+ *
+ * after the write we update the freespace map.
+ *
+ * this might work?
+ */
+const getFileSize = (id: number) => {
+  if (id != -1) {
+    return data[id * 2];
+  }
+};
+
+const freespace = new Map<number, number>();
+const updateFreespace = () => {
+  freespace.clear();
+  let i = 0;
+  while (i < filesystem.length) {
+    const cur = filesystem[i];
+    if (cur == -1) {
+      const start = i;
+      let size = 0;
+      while (filesystem[i] == -1 && i < filesystem.length) {
+        size++;
+        i++;
+      }
+      freespace.set(start, size);
+    } else {
+      i++;
     }
   }
-})
-
-function generateAntiNodes(p1: string, p2: string) {
-  const p1split = p1.split('#');
-  const p2split = p2.split('#');
-  const x1 = parseInt(p1split[1]);
-  const y1 = parseInt(p1split[0]);
-  const x2 = parseInt(p2split[1]);
-  const y2 = parseInt(p2split[0]);
-
-  const vx = (x2 - x1);
-  const vy = (y2 - y1);
-
-  const foox1 = x1 + vx;
-  const fooy1 = y1 + vy;
-  const barx1 = x1 - vx;
-  const bary1 = y1 - vy;
-  const foo1key = `${fooy1}#${foox1}`
-  const bar1key = `${bary1}#${barx1}`
-
-  const foox2 = x2 + vx;
-  const fooy2 = y2 + vy;
-  const barx2 = x2 - vx;
-  const bary2 = y2 - vy;
-  const foo2key = `${fooy2}#${foox2}`
-  const bar2key = `${bary2}#${barx2}`
-
-  const pairs: number[][] = [];
-  if (foo1key != p1 && foo1key != p2) pairs.push([fooy1, foox1]);
-  if (bar1key != p1 && bar1key != p2) pairs.push([bary1, barx1]);
-  if (foo2key != p1 && foo2key != p2) pairs.push([fooy2, foox2]);
-  if (bar2key != p1 && bar2key != p2) pairs.push([bary2, barx2]);
-
-  pairs.forEach(pair => {
-    let row = pair[0]
-    let col = pair[1]
-    if (inBounds(pair)) {
-      set.add(`${row}#${col}`)
-    }
-  })
-}
-
-function generateAntiNodesV2(p1: string, p2: string) {
-  const p1split = p1.split('#');
-  const p2split = p2.split('#');
-
-  const x1 = parseInt(p1split[1]);
-  const y1 = parseInt(p1split[0]);
-
-  const x2 = parseInt(p2split[1]);
-  const y2 = parseInt(p2split[0]);
-
-  const dx = (x1 - x2);
-  const dy = (y1 - y2);
-  const adx = -1 * dx;
-  const ady = -1 * dy;
-
-  let cur = [y1, x1];
-  while (1) {
-    cur[0] += dy;
-    cur[1] += dx;
-    if (!inBounds(cur)) break;
-    set.add(`${cur[0]}#${cur[1]}`)
+};
+const part2Defrag = () => {
+  updateFreespace();
+  let i = filesystem.length - 1;
+  while (i >= 0) {
+    let cur = filesystem[i];
+    if (cur != -1) {
+      let size = getFileSize(cur)!;
+      let iWrite: null | number = null;
+      for (const key of freespace.keys()) {
+        if (freespace.get(key)! >= size && key < i) {
+          iWrite = key;
+          break;
+        }
+      }
+      if (iWrite == null) while (filesystem[i] == cur && i >= 0) i--;
+      else {
+        for (let z = 0; z < size; z++) {
+          filesystem[iWrite + z] = cur;
+          filesystem[i] = -1;
+          i--;
+        }
+        updateFreespace();
+      }
+    } else i--;
   }
+  // Part 2 answer: 6408966547049
+  /**
+   * Notes on this solution:
+   * 1. It worked, but it took way too long.
+   * 2. This is hackey, not elegant and quite brute force.
+   * 3. I'm happy this is over so I can stop obsessing over it,
+   *    but I still feel very dumb.
+   */
+  checksum();
+};
 
-  let anticur = [y1, x1];
-  while (1) {
-    anticur[0] += ady;
-    anticur[1] += adx;
-    if (!inBounds(anticur)) break;
-    set.add(`${anticur[0]}#${anticur[1]}`)
-  }
-
-  let cur2 = [y2, x2];
-  while (1) {
-    cur2[0] += dy;
-    cur2[1] += dx;
-    if (!inBounds(cur2)) break;
-    set.add(`${cur2[0]}#${cur2[1]}`)
-  }
-
-  let anticur2 = [y1, x1];
-  while (1) {
-    anticur2[0] += ady;
-    anticur2[1] += adx;
-    if (!inBounds(anticur2)) break;
-    set.add(`${anticur2[0]}#${anticur2[1]}`)
-  }
-}
-
-data.forEach(l => console.log(JSON.stringify(l)));
-console.log(`Result: ${set.size}`);
+part2Defrag();
