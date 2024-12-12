@@ -99,13 +99,14 @@ function run() {
    *
    */
   let masterScore = 0;
-  let score = 0;
+  // let score = 0;
+  let curSet = new Set<string>();
   const aux = (depth: number, loc: string) => {
     // base case: if 9, return 1
     // else if no siblings, return 0 (also memoize fetched siblings at that location)
     if (depth == 9) {
       console.log(`depth was 9 at ${loc}`);
-      score += 1;
+      curSet.add(loc);
       return;
     }
     let siblings: string[] = [];
@@ -125,10 +126,10 @@ function run() {
   };
 
   getAllTrailheadLocations().forEach((loc) => {
-    score = 0;
+    curSet.clear();
     aux(0, loc);
-    console.log(`Score from trailhead ${loc} == ${score}`);
-    masterScore += score;
+    console.log(`Score from trailhead ${loc} == ${curSet.size}`);
+    masterScore += curSet.size;
   });
 
   console.log(`got score from trailheads: ${masterScore}`);
