@@ -55,7 +55,7 @@ const getSiblings = (node: string) => {
  * 
  * if NOT left, left contributes a perimeter value.
  */
-const getPerimeter = (node: string) => {
+const getCorners = (node: string) => {
 
   const split = node.split('#');
   const row = parseInt(split[0]);
@@ -67,10 +67,48 @@ const getPerimeter = (node: string) => {
   const up = (inBounds(row - 1, col) && data[row - 1][col] == nodeVal) ? `${row - 1}#${col}` : null;
   const down = (inBounds(row + 1, col) && data[row + 1][col] == nodeVal) ? `${row + 1}#${col}` : null;
 
-  // console.log(`node ${nodeVal} at ${node} has - no LEFT: ${!left}, no RIGHT: ${!right}, no UP: ${!up}, no DOWN: ${!down}`);
-  const perim = (!left ? 1 : 0) + (!right ? 1 : 0) + (!up ? 1 : 0) + (!down ? 1 : 0);
-  // console.log(`returning perim for: ${node} = ${perim}`)
-  return perim
+
+  // A corner is a corner if up/down and left/right are DIFFERENT
+  // OR left/right and up/down the same, but up-left DIFFERENT
+
+  // Out of bounds counts as different
+
+  const isDifferent = (r: number, c: number) => {
+    // if not in bounds, return true
+    if (!inBounds(r, c)) return true
+    // Else, in bounds so check the values
+    return data[r][c] != nodeVal;
+  }
+
+  // Up left
+  // Convex if up, left different
+  const upLeftIsConvexCorner = isDifferent(row - 1, col) && isDifferent(row, col - 1);
+  // Convave is up, left same, AND, up-left different
+  const upLeftIsConcaveCorner = !isDifferent(row - 1, col) && !isDifferent(row, col - 1) && isDifferent(row - 1, col - 1);
+
+  // Up and Right
+  const upRightIsConvexCorner = isDifferent(row - 1, col) && isDifferent(row, col + 1);
+  // Convave is up, right same, AND, up-right different
+  const upRightIsConcaveCorner = !isDifferent(row - 1, col) && !isDifferent(row, col + 1) && isDifferent(row - 1, col + 1);
+
+  // Down and Left
+  const downLeftIsConvexCorner = isDifferent(row + 1, col) && isDifferent(row, col - 1);
+  // Convave is Down, Left same, AND, down-left different
+  const downLeftIsConcaveCorner = !isDifferent(row + 1, col) && !isDifferent(row, col - 1) && isDifferent(row + 1, col - 1);
+
+  // Down and Right
+  const downRightIsConvexCorner = isDifferent(row + 1, col) && isDifferent(row, col + 1);
+  // Convave is Down, Right same, AND, down-right different
+  const downRightIsConcaveCorner = !isDifferent(row + 1, col) && !isDifferent(row, col + 1) && isDifferent(row + 1, col + 1);
+
+  return (upLeftIsConvexCorner ? 1 : 0) +
+    (upLeftIsConcaveCorner ? 1 : 0) +
+    (upRightIsConvexCorner ? 1 : 0) +
+    (upRightIsConcaveCorner ? 1 : 0) +
+    (downLeftIsConvexCorner ? 1 : 0) +
+    (downLeftIsConcaveCorner ? 1 : 0) +
+    (downRightIsConvexCorner ? 1 : 0) +
+    (downRightIsConcaveCorner ? 1 : 0)
 }
 
 function run() {
@@ -87,7 +125,7 @@ function run() {
 
   // node is a key of co-ords like row#col
   // acc is the running perimeter cost so far
-  let tempPerim = 0;
+  let numCorners = 0;
   let curRegionVisited = new Set<string>();
 
   const dfs = (node: string) => {
@@ -99,12 +137,12 @@ function run() {
 
     // Base case - no sibbies - return perimeter contribution and 1, e.g. [perim, 1]
     if (!siblings.length) {
-      tempPerim += getPerimeter(node);
+      numCorners += getCorners(node);
       return;
     }
 
     // Recursive case, do the same thing but call dfs
-    tempPerim += getPerimeter(node);
+    numCorners += getCorners(node);
     siblings.forEach(sibbie => {
       if (!visited.has(sibbie)) dfs(sibbie);
     });
@@ -116,11 +154,11 @@ function run() {
       let cur = data[i][j];
       let curkey = `${i}#${j}`;
       if (visited.has(curkey)) continue;
-      tempPerim = 0;
+      numCorners = 0;
       curRegionVisited.clear();
       dfs(curkey);
       // console.log(`region ${cur} has perim: ${tempPerim}, count: ${curRegionVisited.size}\n`);
-      total += tempPerim * curRegionVisited.size;
+      total += numCorners * curRegionVisited.size;
     }
   }
   console.log(`total: ${total}`);
