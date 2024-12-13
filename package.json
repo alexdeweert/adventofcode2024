@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "linked-list": "^3.1.0",
+    "mathjs": "^14.0.1",
     "tsx": "^4.19.2"
   }
 }
